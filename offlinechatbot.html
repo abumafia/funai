@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HALLAYM AI - Offline Chatbot</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+  <style>
+    .typing {
+      border-right: 2px solid #ccc;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    body {
+      background: transparent;
+    }
+    #bgCanvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      z-index: -1;
+    }
+  </style>
+</head>
+<body class="backdrop-blur-sm bg-black/60 text-white h-screen flex flex-col justify-center items-center p-4">
+  <canvas id="bgCanvas"></canvas>
+  <div class="bg-white/10 rounded-2xl shadow-2xl w-full max-w-xl p-6 space-y-4 backdrop-blur-md">
+    <h1 class="text-2xl font-bold text-center text-white drop-shadow">🤖 HALLAYM AI</h1>
+
+    <div id="chat" class="h-80 overflow-y-auto bg-black/30 p-4 rounded-xl space-y-2 text-sm sm:text-base"></div>
+
+    <div class="flex space-x-2">
+      <input id="userInput" type="text" placeholder="Savolingizni yozing..." class="flex-grow px-4 py-2 rounded-xl text-black focus:outline-none" />
+      <button onclick="sendMessage()" class="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-xl">Yuborish</button>
+    </div>
+  </div>
+
+  <script>
+    // THREE.JS ANIMATED BACKGROUND
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('bgCanvas'), alpha: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+
+    const geometry = new THREE.SphereGeometry(5, 32, 32);
+    const material = new THREE.MeshStandardMaterial({ color: 0x00ffff, wireframe: true });
+    const sphere = new THREE.Mesh(geometry, material);
+    scene.add(sphere);
+
+    const light = new THREE.PointLight(0xffffff, 1, 100);
+    light.position.set(10, 10, 10);
+    scene.add(light);
+
+    camera.position.z = 15;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      sphere.rotation.y += 0.01;
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener("resize", () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // CHATBOT FUNCTIONALITY
+    const chat = document.getElementById("chat");
+    const userInput = document.getElementById("userInput");
+
+    let db = JSON.parse(localStorage.getItem("hallaym_ai_db")) || {
+      "salom": "Salom! Yordam bera olamanmi?",
+      "sen kimsan": "Men HALLAYM AI – sizga yordam beradigan offline botman!"
+    };
+
+    function appendMessage(role, text) {
+      const msg = document.createElement("div");
+      msg.className = role === "user" ? "text-right" : "text-left";
+      msg.innerHTML = `<span class="inline-block px-3 py-2 rounded-xl ${role === "user" ? 'bg-blue-500' : 'bg-green-600'}">${text}</span>`;
+      chat.appendChild(msg);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function typeText(text) {
+      let aiMsg = document.createElement("div");
+      aiMsg.className = "text-left";
+      let span = document.createElement("span");
+      span.className = "inline-block px-3 py-2 rounded-xl bg-green-600 typing";
+      aiMsg.appendChild(span);
+      chat.appendChild(aiMsg);
+      chat.scrollTop = chat.scrollHeight;
+
+      for (let i = 0; i <= text.length; i++) {
+        span.textContent = text.slice(0, i);
+        await sleep(30);
+      }
+      span.classList.remove("typing");
+    }
+
+    async function sendMessage() {
+      const input = userInput.value.trim().toLowerCase();
+      if (!input) return;
+      appendMessage("user", input);
+      userInput.value = "";
+
+      if (db[input]) {
+        await typeText(db[input]);
+      } else {
+        await typeText("Bilmayman. Ayt-chi, bu nima?");
+        setTimeout(async () => {
+          const userResponse = prompt("Javobini yozing:");
+          if (userResponse) {
+            db[input] = userResponse;
+            localStorage.setItem("hallaym_ai_db", JSON.stringify(db));
+            appendMessage("user", userResponse);
+            await typeText("Rahmat! Endi eslab qolaman.");
+          } else {
+            await typeText("Xo‘p, keyinroq eslab qolarman.");
+          }
+        }, 500);
+      }
+    }
+  </script>
+</body>
+</html>
